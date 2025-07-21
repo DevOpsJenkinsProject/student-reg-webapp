@@ -1,0 +1,67 @@
+pipeline {
+    agent any
+
+    tools {
+        maven 'Maven-3.9.10'
+    }
+
+    environment {
+        MAVEN_HOME = tool 'Maven-3.9.10'
+        SONAR_HOST = 'http://43.205.120.219:9000'
+    }
+
+    stages {
+
+        stage('Build & SonarQube') {
+            steps {
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''
+                        $MAVEN_HOME/bin/mvn clean verify sonar:sonar \
+                          -Dsonar.projectKey=student-reg-webapp \
+                          -Dsonar.host.url=$SONAR_HOST \
+                          -Dsonar.token=$SONAR_TOKEN
+                    '''
+                }
+            }
+        }
+
+        stage('Stop Tomcat') {
+            steps {
+                sshagent(['Tomcat_Server']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no ec2-user@172.31.37.173 "sudo systemctl stop tomcat"
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy WAR') {
+            steps {
+                sshagent(['Tomcat_Server']) {
+                    sh '''
+                        scp -o StrictHostKeyChecking=no target/student-reg-webapp.war ec2-user@172.31.37.173:/opt/tomcat/webapps/
+                    '''
+                }
+            }
+        }
+
+        stage('Start Tomcat') {
+            steps {
+                sshagent(['Tomcat_Server']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no ec2-user@172.31.37.173 "sudo systemctl start tomcat"
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Deployment completed successfully!'
+        }
+        failure {
+            echo '❌ Pipeline failed. Check console output.'
+        }
+    }
+}
