@@ -14,7 +14,7 @@ pipeline {
 
         stage('Build & SonarQube Scan') {
             steps {
-                withCredentials([string(credentialsId: 'SonarToken', variable: 'SONAR_TOKEN')]) {
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
                         $MAVEN_HOME/bin/mvn clean verify sonar:sonar \
                           -Dsonar.projectKey=student-reg-webapp \
